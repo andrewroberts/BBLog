@@ -10,3 +10,5 @@ This builds on the work of [Peter Hermann's BetterLog](https://github.com/peterh
 - Automatically log the user's email address or ID, in a full or disguised format
 
 Library ID: 1kzzYZhgODZluRmjsjh7t3O-ftmFAF9h1jaRHU0rOdf9irF0VUiJW33Kt
+
+See ["BBLog Test/Examples"](https://github.com/andrewroberts/BBLog---Tests-Examples) for a complete set of unit test and examples on using the library.
