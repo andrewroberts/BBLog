@@ -16,13 +16,13 @@
  */
 
 /*******************************************************************************
- * Copyright (c) 2017 Andrew Roberts - Peter Herrmann
+ * Copyright (c) 2018 Andrew Roberts - Peter Herrmann
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  * 
- * http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -114,18 +114,20 @@ function getLog(config) {
  *   var log = BBLog.getLog()
  *   log.info('Test string')
  *
- * @param {Object} userConfig
- *   {LockService}                lock                 Lock service                       (Default: null)  
- *   {BBLog.Level}                level                Level of logging to be output      (Default: Level.INFO)
- *   {String}                     sheetId              Log sheet id, null to disable      (Default: Use active spreadsheet)
- *   {String}                     sheetName            Log sheet name                     (Default: 'Log')
- *   {BBLog.DisplayFunctionNames} displayFunctionNames Display calling function names     (Default: DisplayFunctionNames.NO)
- *   {BBLog.DisplayUserId}        displayUserId        Whether a user ID should be output (Default: DisplayUserId.NONE)
- *   {String}                     firebaseUrl          Firebase url                       (Default: null)
- *   {String}                     firebaseSecret       Firebase secret                    (Default: null)
- *   {String}                     useNativeLogger      Use the native Logger service      (Default: false)
- *   {Number}                     maxRows              The maximum rows in a log sheet    (Default: 50000)
- *   {Number}                     rollerRowCount       Freq' of GSheet roll-over check    (Default: 100)  
+ * @param {object} userConfig
+ *   {LockService}                lock                 Lock service                       (Optional, default: null)  
+ *   {BBLog.Level}                level                Level of logging to be output      (Optional, default: Level.INFO)
+ *   {string}                     sheetId              Log sheet id, null to disable      (Optional, default: Use active spreadsheet)
+ *   {string}                     sheetName            Log sheet name                     (Optional, default: 'Log')
+ *   {BBLog.DisplayFunctionNames} displayFunctionNames Display calling function names     (Optional, default: DisplayFunctionNames.NO)
+ *   {BBLog.DisplayUserId}        displayUserId        Whether a user ID should be output (Optional, default: DisplayUserId.NONE)
+ *   {string}                     firebaseUrl          Firebase url                       (Optional, default: null)
+ *   {string}                     firebaseSecret       Firebase secret                    (Optional, default: null)
+ *   {string}                     useNativeLogger      Use the native Logger service      (Optional, default: false)
+ *   {number}                     maxRows              The maximum rows in a log sheet    (Optional, default: 50000)
+ *   {number}                     rollerRowCount       Freq' of GSheet roll-over check    (Optional, default: 100)
+ *   {boolean}                    hideLog              Whether to hide the log tab        (Optional, default: false)
+ *   {boolean}                    skipRepeats          Whether to log repeated errors     (Optional, default: true)
  */
 
 function BBLog_(userConfig) {
@@ -156,6 +158,8 @@ function BBLog_(userConfig) {
     useNativeLogger      : false,
     maxRows              : SHEET_MAX_ROWS_,
     rollerRowCount       : ROLLER_ROW_COUNT_,
+    hideLog              : false,
+    skipRepeats          : true,
   }
 
   // Overwrite defaults with user settings
@@ -199,7 +203,8 @@ function BBLog_(userConfig) {
     
       this.localSheet = this._useSpreadsheet(
         defaultConfig_.sheetId, 
-        defaultConfig_.sheetName); 
+        defaultConfig_.sheetName,
+        defaultConfig_.hideLog); 
         
       this._rollLogOver(); 
       
@@ -227,7 +232,7 @@ function BBLog_(userConfig) {
   // -----------------
   
   /**
-   * @returns {Boolean} Whether the user has permission to call getActiveUser().
+   * @returns {boolean} Whether the user has permission to call getActiveUser().
    *                    This is a way to test if they are a custom function
    */
   
@@ -251,8 +256,8 @@ function BBLog_(userConfig) {
  * importance and which will prevent normal program execution. They should be 
  * reasonably intelligible to end users and to system administrators. 
  *
- * @param  {Object} message    The message to log or an sprintf-like format string (uses Utilities.formatString() internally - see http://www.perlmonks.org/?node_id=20519 as a good reference).
- * @param  {Object...} optValues  If a format string is used in the message, a number of values to insert into the format string
+ * @param  {object} message    The message to log or an sprintf-like format string (uses Utilities.formatString() internally - see http://www.perlmonks.org/?node_id=20519 as a good reference).
+ * @param  {object...} optValues  If a format string is used in the message, a number of values to insert into the format string
  *
  * @returns {BetterLog} this object, for chaining
  */
@@ -270,7 +275,7 @@ BBLog_.prototype.severe = function(message, optValues) {
  * In general WARNING messages should describe events that will be of interest 
  * to end users or system managers, or which indicate potential problems. 
  *
- * @param  {Object} message    The message to log or an sprintf-like format string (uses Utilities.formatString() internally - see http://www.perlmonks.org/?node_id=20519 as a good reference).
+ * @param  {object} message    The message to log or an sprintf-like format string (uses Utilities.formatString() internally - see http://www.perlmonks.org/?node_id=20519 as a good reference).
  * @param  {Object...} optValues  If a format string is used in the message, a number of values to insert into the format string.
  *
  * @returns {BetterLog} this object, for chaining
@@ -290,7 +295,7 @@ BBLog_.prototype.warning = function(message, optValues) {
  * So the INFO level should only be used for reasonably significant messages 
  * that will make sense to end users and system administrators. 
  *
- * @param  {Object} message    The message to log or an sprintf-like format string (uses Utilities.formatString() internally - see http://www.perlmonks.org/?node_id=20519 as a good reference).
+ * @param  {object} message    The message to log or an sprintf-like format string (uses Utilities.formatString() internally - see http://www.perlmonks.org/?node_id=20519 as a good reference).
  * @param  {Object...} optValues  If a format string is used in the message, a number of values to insert into the format string.
  *
  * @returns {BetterLog} this object, for chaining
@@ -310,8 +315,9 @@ BBLog_.prototype.info = function(message, optValues) {
 * So the INFO level should only be used for reasonably significant messages 
 * that will make sense to end users and system administrators. 
 *
-* @param  {Object} message    The message to log or an sprintf-like format string (uses Utilities.formatString() internally - see http://www.perlmonks.org/?node_id=20519 as a good reference).
-* @param  {Object...} optValues  If a format string is used in the message, a number of values to insert into the format string.
+* @param  {object} message    The message to log or an sprintf-like format string (uses Utilities.formatString() internally - see http://www.perlmonks.org/?node_id=20519 as a good reference).
+* @param  {object...} optValues  If a format string is used in the message, a number of values to insert into the format string.
+*
 * @returns {BetterLog} this object, for chaining
 */
 
@@ -330,7 +336,7 @@ BBLog_.prototype.log = function(message, optValues) {
  * information, to assist in debugging problems that may be associated with 
  * particular configurations. 
  *
- * @param  {Object} message    The message to log or an sprintf-like format string (uses Utilities.formatString() internally - see http://www.perlmonks.org/?node_id=20519 as a good reference).
+ * @param  {object} message    The message to log or an sprintf-like format string (uses Utilities.formatString() internally - see http://www.perlmonks.org/?node_id=20519 as a good reference).
  * @param  {Object...} optValues  If a format string is used in the message, a number of values to insert into the format string.
  *
  * @returns {BetterLog} this object, for chaining
@@ -357,8 +363,9 @@ BBLog_.prototype.config = function(message, optValues) {
  * subsystem. FINE messages might include things like minor (recoverable) failures. 
  * Issues indicating potential performance problems are also worth logging as FINE. 
  *
- * @param  {Object} message    The message to log or an sprintf-like format string (uses Utilities.formatString() internally - see http://www.perlmonks.org/?node_id=20519 as a good reference).
+ * @param  {object} message    The message to log or an sprintf-like format string (uses Utilities.formatString() internally - see http://www.perlmonks.org/?node_id=20519 as a good reference).
  * @param  {Object...} optValues  If a format string is used in the message, a number of values to insert into the format string.
+ *
  * @returns {BetterLog} this object, for chaining
  */
  
@@ -372,8 +379,9 @@ BBLog_.prototype.fine = function(message, optValues) {
 /**
  * Logs at the FINER level. FINER indicates a fairly detailed tracing message.
  * 
- * @param  {Object} message The message to log or an sprintf-like format string (uses Utilities.formatString() internally - see http://www.perlmonks.org/?node_id=20519 as a good reference).
+ * @param  {object} message The message to log or an sprintf-like format string (uses Utilities.formatString() internally - see http://www.perlmonks.org/?node_id=20519 as a good reference).
  * @param  {Object...} optValues  If a format string is used in the message, a number of values to insert into the format string.
+ *
  * @returns {BetterLog} this object, for chaining
  */
 
@@ -387,8 +395,9 @@ BBLog_.prototype.finer = function(message, optValues) {
 /**
  * Logs at the FINEST level. FINEST indicates a highly detailed tracing message. 
  *
- * @param  {Object} message The message to log or an sprintf-like format string (uses Utilities.formatString() internally - see http://www.perlmonks.org/?node_id=20519 as a good reference).
+ * @param  {object} message The message to log or an sprintf-like format string (uses Utilities.formatString() internally - see http://www.perlmonks.org/?node_id=20519 as a good reference).
  * @param  {Object...} optValues  If a format string is used in the message, a number of values to insert into the format string.
+ *
  * @returns {BetterLog} this object, for chaining
  */
 
@@ -403,7 +412,7 @@ BBLog_.prototype.finest = function(message, optValues) {
  * Optionally included as the first function called in a function, and logged as 
  * FINEST. Used to map all function calls.
  *
- * @param {Object} message The message to log or an sprintf-like format string (uses Utilities.formatString() internally - see http://www.perlmonks.org/?node_id=20519 as a good reference).
+ * @param {object} message The message to log or an sprintf-like format string (uses Utilities.formatString() internally - see http://www.perlmonks.org/?node_id=20519 as a good reference).
  * @param {Object...} options If a format string is used in the message, a number of values to insert into the format string.
  *
  * @returns {Log} This object, for chaining
@@ -512,20 +521,18 @@ BBLog_.prototype.remoteLogProxy = function(e) {
  * Allows logging to a Google spreadsheet. Sets the log sheet, creating 
  * one if it doesn't exist
  *
- * @param {String} key The spreadsheet key [OPTIONAL, DEFAULT: active spreadsheet]
- * @param {String} sheetName The name of the sheet 
+ * @param {string} key The spreadsheet key [OPTIONAL, DEFAULT: active spreadsheet]
+ * @param {string} sheetName The name of the sheet 
+ * @param {boolean} hideLog
  */
  
-BBLog_.prototype._useSpreadsheet = function(key, sheetName) {
+BBLog_.prototype._useSpreadsheet = function(key, sheetName, hideLog) {
 
   var spreadsheet;
 
-  if (typeof key !== 'undefined' && key !== '') {
-  
+  if (typeof key !== 'undefined' && key !== '') {  
     spreadsheet = SpreadsheetApp.openById(key); 
-    
   } else {
-  
     spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   }
   
@@ -536,62 +543,26 @@ BBLog_.prototype._useSpreadsheet = function(key, sheetName) {
   var numberOfSheets = sheets.length
   var sheet = null;
   
-  for (var sheetIndex = 0; sheetIndex < sheets.length; sheetIndex++) {
-  
+  for (var sheetIndex = 0; sheetIndex < sheets.length; sheetIndex++) {  
     if (sheets[sheetIndex].getName() === sheetName) {
       sheet = sheets[sheetIndex];
     }
   }
   
-  if (sheet === null) {
+  if (sheet === null) { 
     sheet = spreadsheet.insertSheet(sheetName, numberOfSheets);
     sheet.deleteColumns(2, sheet.getMaxColumns() - 1);
     sheet.getRange(1,1).setValue(SHEET_LOG_HEADER_);
     sheet.setFrozenRows(1);
-    sheet.setColumnWidth(1, SHEET_LOG_CELL_WIDTH_);
+    sheet.setColumnWidth(1, SHEET_LOG_CELL_WIDTH_);    
+  }
+
+  if (hideLog) {
+    sheet.hideSheet()
   }
 
   sheet.getRange(1,1).setValue(SHEET_LOG_HEADER_); // In case we need to update
   return sheet
-  
-  // Private Functions
-  // -----------------
-  
-  /**
-   * Sets the log sheet, creating one if it doesn't exist
-   *
-   * @param {String} key The spreadsheet key [OPTIONAL, DEFAULT: active spreadsheet]
-   * @param {String} sheetName The name of the sheet 
-   *
-   * @returns {Object} 
-   */
-  
-  function createLogSheet(key, sheetName) {
-  
-    sheetName = sheetName || "Log";
-    var spreadsheet = (key) ? SpreadsheetApp.openById(key) : SpreadsheetApp.getActiveSpreadsheet();
-    
-    var sheets = Utils_.callWithBackoff(function() {
-      return spreadsheet.getSheets();
-    });
-    
-    var sheet
-    
-    for (var sheetIndex = 0; sheetIndex < sheets.length; sheetIndex++) {
-      if (sheets[sheetIndex].getName() === sheetName) {
-        sheet = sheets[sheetIndex];
-        return sheet;
-      }
-    }
-    
-    sheet = ss.insertSheet(sheetName, i);
-    sheet.deleteColumns(2,sheet.getMaxColumns()-1);
-    sheet.getRange(1,1).setValue(SHEET_LOG_HEADER_);
-    sheet.setFrozenRows(1);
-    sheet.setColumnWidth(1, SHEET_LOG_CELL_WIDTH_);
-    return sheet
-    
-  } // BBLog_.useSpreadsheet_.createLogSheet()
   
 } // BBLog_.useSpreadsheet_()
 
@@ -659,9 +630,9 @@ BBLog_.prototype._storeUserId = function(storeId) {
   /**
    * Hide the user's email address by removing the middle letters of the user
    *
-   * @param {String} email
+   * @param {string} email
    *
-   * @returns {String} Hidden email or ''
+   * @returns {string} Hidden email or ''
    */
   
   function hideEmailUser(email) {  
@@ -693,7 +664,9 @@ BBLog_.prototype._storeUserId = function(storeId) {
   
 } // BBLog_.storeUserId()
 
-// core logger function
+/**
+ * Core logger function
+ */
 
 BBLog_.prototype._log = function(oldArgs, level) {
 
@@ -704,14 +677,11 @@ BBLog_.prototype._log = function(oldArgs, level) {
   var self = this;
   
   // get args and transform objects to strings like the native logger does
-  var newArgs = Array.prototype.slice.call(oldArgs).map(function(arg){
-  
+  var newArgs = Array.prototype.slice.call(oldArgs).map(function(arg){  
     var type = typeof arg;
-    
     if (type === 'undefined') {
       return 'undefined';
     }
-    
     return (arg !== null && type === 'object') ? JSON.stringify(arg, null, JSON_SPACES_) : arg;
   });
 
@@ -919,7 +889,7 @@ BBLog_.prototype._rollLogOver = function() {
 /**
  * Count the log call when logging to a sheet
  *
- * @returns {Number} count
+ * @returns {number} count
  */
 
 BBLog_.prototype._incCallCountToSheetLog = (function () {
@@ -942,9 +912,9 @@ var Utils_ = {
 /**
  * Exponential backoff - Copy of version 10 lib GASRetry 'MGJu3PS2ZYnANtJ9kyn2vnlLDhaBgl_dE' 
  *
- * @param  {Function} functionName
+ * @param  {function} functionName
  *
- * @returns {Object} Result of function call
+ * @returns {object} Result of function call
  */
 
 callWithBackoff: function(functionName) {
@@ -971,9 +941,9 @@ callWithBackoff: function(functionName) {
 /**
  *
  *
- * @param {Object} 
+ * @param {object} 
  *
- * @returns {Object} 
+ * @returns {object} 
  */
 
 function functionTemplate_() {
