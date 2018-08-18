@@ -551,10 +551,7 @@ BBLog_.prototype._useSpreadsheet = function(key, sheetName, hideLog) {
   
   if (sheet === null) { 
     sheet = spreadsheet.insertSheet(sheetName, numberOfSheets);
-    sheet.deleteColumns(2, sheet.getMaxColumns() - 1);
-    sheet.getRange(1,1).setValue(SHEET_LOG_HEADER_);
-    sheet.setFrozenRows(1);
-    sheet.setColumnWidth(1, SHEET_LOG_CELL_WIDTH_);    
+    formatLog()
   }
 
   if (hideLog) {
@@ -563,6 +560,52 @@ BBLog_.prototype._useSpreadsheet = function(key, sheetName, hideLog) {
 
   sheet.getRange(1,1).setValue(SHEET_LOG_HEADER_); // In case we need to update
   return sheet
+  
+  // Private Functions
+  // -----------------
+  
+  /**
+   * Set up the formatting of the log sheet
+   */
+    
+  function formatLog() {
+
+    sheet.deleteColumns(2, sheet.getMaxColumns() - 1);
+    
+    sheet
+      .getRange(1,1)
+      .setValue(SHEET_LOG_HEADER_)
+      .setFontWeight('bold')
+      .setBackground('grey')
+      .setFontColor('white');
+      
+    sheet.setFrozenRows(1);
+    
+    sheet.setColumnWidth(1, SHEET_LOG_CELL_WIDTH_);    
+
+    var conditionalFormatRules = sheet.getConditionalFormatRules();
+    
+    conditionalFormatRules.push(SpreadsheetApp.newConditionalFormatRule()
+      .setRanges([spreadsheet.getRange('A2:A1000')])
+      .whenTextContains('SEVERE')
+      .setBackground('#F4C7C3')
+      .build());
+    
+    conditionalFormatRules.push(SpreadsheetApp.newConditionalFormatRule()
+      .setRanges([spreadsheet.getRange('A2:A1000')])
+      .whenTextContains('WARNING')
+      .setBackground('#FCE8B2')
+      .build());
+   
+    conditionalFormatRules.push(SpreadsheetApp.newConditionalFormatRule()
+      .setRanges([spreadsheet.getRange('A2:A1000')])
+      .whenTextContains('INFO')
+      .setBackground('#B7E1CD')
+      .build());
+    
+    sheet.setConditionalFormatRules(conditionalFormatRules);
+    
+  } // BBLog_.useSpreadsheet_.formatLog()
   
 } // BBLog_.useSpreadsheet_()
 
