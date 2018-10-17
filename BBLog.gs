@@ -93,7 +93,6 @@ var DEFAULT_DISPLAY_USER_ID_       = DisplayUserId.NONE
 var SHEET_MAX_ROWS_                = 50000; // Sheet is cleared and starts again
 var ROLLER_ROW_COUNT_              = 100;   // Number of calls after to which to check for max rows
 
-
 /********************************************************************************
  * Public Methods
  ****************/
@@ -127,7 +126,8 @@ function getLog(config) {
  *   {number}                     maxRows              The maximum rows in a log sheet    (Optional, default: 50000)
  *   {number}                     rollerRowCount       Freq' of GSheet roll-over check    (Optional, default: 100)
  *   {boolean}                    hideLog              Whether to hide the log tab        (Optional, default: false)
- *   {boolean}                    skipRepeats          Whether to log repeated errors     (Optional, default: true)
+ *   {boolean}                    skipRepeats          Whether to log repeated errors     (Optional, default: true) // TODO - Not implemented
+ *   {boolean}                    useStackdriver       Whether to use StackDriver loggin  (Optional, default: true) // TODO - Not implemented
  */
 
 function BBLog_(userConfig) {
@@ -776,7 +776,11 @@ BBLog_.prototype._log = function(oldArgs, level) {
     } else {
     
       Utils_.callWithBackoff(function() {
+      
         self.localSheet.appendRow([longMessage]);
+        
+        // Use the same formatting for writing to StackDriver
+        console.log(longMessage);
       });
     }
     
