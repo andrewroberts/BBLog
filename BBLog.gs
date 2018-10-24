@@ -639,7 +639,7 @@ BBLog_.prototype._storeUserId = function(storeId) {
   
   } else if (storeId === DisplayUserId.EMAIL_HIDE || storeId === DisplayUserId.EMAIL_FULL) {
   
-    userEmail = Session.getActiveUser().getEmail()
+    userEmail = Session.getEffectiveUser().getEmail()
     
     if (userEmail) {
       
