@@ -16,7 +16,7 @@
  */
 
 /*******************************************************************************
- * Copyright (c) 2018 Andrew Roberts - Peter Herrmann
+ * Copyright (c) 2018 Andrew Roberts
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,7 +83,7 @@ var SHEET_LOG_HEADER_     = 'Message layout: "DateTime UTC-Offset MillisecondsSi
 var DATE_TIME_LAYOUT_     = 'yyyy-MM-dd HH:mm:ss:SSS Z'; //http://docs.oracle.com/javase/6/docs/api/java/text/SimpleDateFormat.html
 var JSON_SPACES_          = 0;     // The number of space characters to use as white space
 var USER_ID_LENGTH_       = 15;    // Number of chars of user ID to display
-var DISABLE_BACKOFF_      = true;   // For testing
+var DISABLE_BACKOFF_      = false; // For testing
 
 // User-configurable values (via getLog())
 var DEFAULT_LOG_LEVEL_             = Level.INFO.value;
@@ -126,6 +126,8 @@ function getLog(config) {
  *   {number}                     maxRows              The maximum rows in a log sheet    (Optional, default: 50000)
  *   {number}                     rollerRowCount       Freq' of GSheet roll-over check    (Optional, default: 100)
  *   {boolean}                    hideLog              Whether to hide the log tab        (Optional, default: false)
+ *   {string}                     backupFolderId       Where to put old logs              (Optional, default: GDrive root) 
+ *   {boolean}                    backupWholeSS        Whether to back the whole ss       (Optional, default: false) 
  *   {boolean}                    skipRepeats          Whether to log repeated errors     (Optional, default: true) // TODO - Not implemented
  *   {boolean}                    useStackdriver       Whether to use StackDriver loggin  (Optional, default: true) // TODO - Not implemented
  */
@@ -145,6 +147,9 @@ function BBLog_(userConfig) {
   this.useRemoteLogger      = false;                   // Log to web app with urlFetch
   this.maxRows;
   this.rollerRowCount;
+  this.backupFolder         = null;
+  this.backupWholeSS;
+  this.sheetName;
 
   var defaultConfig_ = {
     lock                 : null,   
@@ -160,6 +165,8 @@ function BBLog_(userConfig) {
     rollerRowCount       : ROLLER_ROW_COUNT_,
     hideLog              : false,
     skipRepeats          : true,
+    backupFolderId       : null,
+    backupWholeSS        : false,
   }
 
   // Overwrite defaults with user settings
@@ -225,6 +232,22 @@ function BBLog_(userConfig) {
   this.userEmail = userIdObject.userEmail;
   
   this.maxRows = defaultConfig_.maxRows;
+  
+  var backupFolderId = defaultConfig_.backupFolderId
+  if (backupFolderId) {
+    try {
+      backupFolder = DriveApp.getFolderById(backupFolderId)
+    } catch (error) {
+      throw new Error('Bad backup log folder ID: ' + backupFolderId + ', Error: ' + error.message)
+    }
+    if (backupFolder === null) {
+      throw new Error('Bad backup log folder ID: ' + backupFolderId)
+    } 
+    this.backupFolder = backupFolder;
+  }
+  
+  this.backupWholeSS = defaultConfig_.backupWholeSS;
+  this.sheetName = defaultConfig_.sheetName;
   
   return;
   
@@ -896,12 +919,9 @@ BBLog_.prototype._rollLogOver = function() {
   // get a lock or throw exception
   var gotLockObject = (this.lock !== null);
   
-  // try for 10 secs to get a lock (else error), long enough to rollover the log
-  
-  if (gotLockObject) {
-  
-    var alreadyHaveLock = this.lock.hasLock();
-    
+  // try for 10 secs to get a lock (else error), long enough to rollover the log 
+  var alreadyHaveLock = this.lock.hasLock()
+  if (gotLockObject) {  
     if (!alreadyHaveLock) {
       this.lock.waitLock(10000); 
     }
@@ -909,11 +929,29 @@ BBLog_.prototype._rollLogOver = function() {
   
   // copy the log
   var ss = this.localSheet.getParent();
-  var oldLog = ss.copy(ss.getName() + ' as at ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), DATE_TIME_LAYOUT_));
+  var timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), DATE_TIME_LAYOUT_);
+  var ssName = ss.getName() + ' as at ' + timestamp;
+  var oldLogSs;
   
+  // SpreadsheetApp.getActiveSheet().copyTo(spreadsheet).setName(name)
+  
+  if (this.backupWholeSS) {  
+    oldLogSs = ss.copy(ssName);  
+  } else {
+    oldLogSs = SpreadsheetApp.create(ssName);
+    this.localSheet.copyTo(oldLogSs).setName(this.sheetName);
+    oldLogSs.deleteSheet(oldLogSs.getSheetByName('Sheet1'));
+  }
+ 
+  if (this.backupFolder) {
+    oldLogFile = DriveApp.getFileById(oldLogSs.getId())
+    DriveApp.getRootFolder().removeFile(oldLogFile)
+    this.backupFolder.addFile(oldLogFile)
+  }
+ 
   // add current viewers and editors to old log
-  oldLog.addViewers(ss.getViewers());
-  oldLog.addEditors(ss.getEditors());
+  oldLogSs.addViewers(ss.getViewers());
+  oldLogSs.addEditors(ss.getEditors());
   
   // prep the live log
   this.localSheet.deleteRows(2, this.localSheet.getMaxRows() - 2);
@@ -924,7 +962,7 @@ BBLog_.prototype._rollLogOver = function() {
     .getRange("A2")
     .setValue(['Log reached ' + rowCount + ' rows (MAX_ROWS is ' + this.maxRows + ') and was cleared. Previous log is available here:']);
     
-  this.localSheet.appendRow([oldLog.getUrl()]);
+  this.localSheet.appendRow([oldLogSs.getUrl()]);
   
   // release lock unless it was already "held"
   if (!alreadyHaveLock && gotLockObject) {
@@ -998,3 +1036,8 @@ function functionTemplate_() {
   
 
 }  // functionTemplate_()
+
+function test() {
+  var a = DriveApp.getFileById('1iwMdhp86eys-37GJr0EVvlWK2Gp2-3ZvDQhGMEy7VqU')
+  debugger
+}
