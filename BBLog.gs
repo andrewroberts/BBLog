@@ -128,8 +128,8 @@ function getLog(config) {
  *   {boolean}                    hideLog              Whether to hide the log tab        (Optional, default: false)
  *   {string}                     backupFolderId       Where to put old logs              (Optional, default: GDrive root) 
  *   {boolean}                    backupWholeSS        Whether to back the whole ss       (Optional, default: false) 
+ *   {boolean}                    useStackdriver       Whether to use StackDriver loggin  (Optional, default: true)  
  *   {boolean}                    skipRepeats          Whether to log repeated errors     (Optional, default: true) // TODO - Not implemented
- *   {boolean}                    useStackdriver       Whether to use StackDriver loggin  (Optional, default: true) // TODO - Not implemented
  */
 
 function BBLog_(userConfig) {
@@ -167,6 +167,7 @@ function BBLog_(userConfig) {
     skipRepeats          : true,
     backupFolderId       : null,
     backupWholeSS        : false,
+    useStackdriver       : true,
   }
 
   // Overwrite defaults with user settings
@@ -248,6 +249,7 @@ function BBLog_(userConfig) {
   
   this.backupWholeSS = defaultConfig_.backupWholeSS;
   this.sheetName = defaultConfig_.sheetName;
+  this.useStackdriver = defaultConfig_.useStackdriver;
   
   return;
   
@@ -743,7 +745,7 @@ BBLog_.prototype._log = function(oldArgs, level) {
   var self = this;
   
   // get args and transform objects to strings like the native logger does
-  var newArgs = Array.prototype.slice.call(oldArgs).map(function(arg){  
+  var newArgs = Array.prototype.slice.call(oldArgs).map(function(arg) {  
     var type = typeof arg;
     if (type === 'undefined') {
       return 'undefined';
@@ -773,12 +775,14 @@ BBLog_.prototype._log = function(oldArgs, level) {
     logToFirebase(messageString, level);
   }
   
+  if (this.useStackdriver) {
+    console.log(convertUsingDefaultPatternLayout(messageString, level));  
+  }
+  
   return
   
   // Private Functions
   // -----------------
-  
-  // logs to spreadsheet
   
   function logToSheet(shortMessage, level) {
   
@@ -798,12 +802,8 @@ BBLog_.prototype._log = function(oldArgs, level) {
       
     } else {
     
-      Utils_.callWithBackoff(function() {
-      
+      Utils_.callWithBackoff(function() {      
         self.localSheet.appendRow([longMessage]);
-        
-        // Use the same formatting for writing to StackDriver
-        console.log(longMessage);
       });
     }
     
