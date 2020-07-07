@@ -16,7 +16,7 @@
  */
 
 /*******************************************************************************
- * Copyright (c) 2018 Andrew Roberts
+ * Copyright (c) 2018 Andrew Roberts - Peter Herrmann
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,7 +83,7 @@ var SHEET_LOG_HEADER_     = 'Message layout: "DateTime UTC-Offset MillisecondsSi
 var DATE_TIME_LAYOUT_     = 'yyyy-MM-dd HH:mm:ss:SSS Z'; //http://docs.oracle.com/javase/6/docs/api/java/text/SimpleDateFormat.html
 var JSON_SPACES_          = 0;     // The number of space characters to use as white space
 var USER_ID_LENGTH_       = 15;    // Number of chars of user ID to display
-var DISABLE_BACKOFF_      = false; // For testing
+var DISABLE_BACKOFF_      = true;   // For testing
 
 // User-configurable values (via getLog())
 var DEFAULT_LOG_LEVEL_             = Level.INFO.value;
@@ -126,10 +126,8 @@ function getLog(config) {
  *   {number}                     maxRows              The maximum rows in a log sheet    (Optional, default: 50000)
  *   {number}                     rollerRowCount       Freq' of GSheet roll-over check    (Optional, default: 100)
  *   {boolean}                    hideLog              Whether to hide the log tab        (Optional, default: false)
- *   {string}                     backupFolderId       Where to put old logs              (Optional, default: GDrive root) 
- *   {boolean}                    backupWholeSS        Whether to back the whole ss       (Optional, default: false) 
- *   {boolean}                    useStackdriver       Whether to use StackDriver loggin  (Optional, default: true)  
  *   {boolean}                    skipRepeats          Whether to log repeated errors     (Optional, default: true) // TODO - Not implemented
+ *   {boolean}                    useStackdriver       Whether to use StackDriver loggin  (Optional, default: true) // TODO - Not implemented
  */
 
 function BBLog_(userConfig) {
@@ -144,12 +142,9 @@ function BBLog_(userConfig) {
   this.startTime            = new Date();              // So we can calculate elapsed time
   this.nativeLogger         = false;                   // The Apps Script nativ e logger
   this.displayFunctionNames = DisplayFunctionNames.NO; // Display calling function names?  
-  this.useRemoteLogger      = false;                   // Log to web app with urlFetch
+//  this.useRemoteLogger      = false;                   // Log to web app with urlFetch
   this.maxRows;
   this.rollerRowCount;
-  this.backupFolder         = null;
-  this.backupWholeSS;
-  this.sheetName;
 
   var defaultConfig_ = {
     lock                 : null,   
@@ -165,9 +160,6 @@ function BBLog_(userConfig) {
     rollerRowCount       : ROLLER_ROW_COUNT_,
     hideLog              : false,
     skipRepeats          : true,
-    backupFolderId       : null,
-    backupWholeSS        : false,
-    useStackdriver       : true,
   }
 
   // Overwrite defaults with user settings
@@ -191,14 +183,7 @@ function BBLog_(userConfig) {
   this.minLevelToDisplay = defaultConfig_.level;
 
   if (defaultConfig_.firebaseUrl !== null) {
-    
-    // Firebase has to come first, so that if it isn't used and 
-    // the sheet ID isn't specified the active sheet is used
-    
-    this.localFirebase = FirebaseApp
-      .getDatabaseByUrl(
-        defaultConfig_.firebaseUrl,
-        defaultConfig_.firebaseSecret);
+    throw new Error('Firebase not supported')   
   } 
   
   if (defaultConfig_.sheetId !== null) {
@@ -217,8 +202,7 @@ function BBLog_(userConfig) {
       this._rollLogOver(); 
       
     } else {
-    
-      this.useRemoteLogger = true;
+      throw new Error('No log sheet specified')
     }
   }
   
@@ -233,23 +217,6 @@ function BBLog_(userConfig) {
   this.userEmail = userIdObject.userEmail;
   
   this.maxRows = defaultConfig_.maxRows;
-  
-  var backupFolderId = defaultConfig_.backupFolderId
-  if (backupFolderId) {
-    try {
-      backupFolder = DriveApp.getFolderById(backupFolderId)
-    } catch (error) {
-      throw new Error('Bad backup log folder ID: ' + backupFolderId + ', Error: ' + error.message)
-    }
-    if (backupFolder === null) {
-      throw new Error('Bad backup log folder ID: ' + backupFolderId)
-    } 
-    this.backupFolder = backupFolder;
-  }
-  
-  this.backupWholeSS = defaultConfig_.backupWholeSS;
-  this.sheetName = defaultConfig_.sheetName;
-  this.useStackdriver = defaultConfig_.useStackdriver;
   
   return;
   
@@ -503,14 +470,14 @@ BBLog_.prototype.setLevel = function(level) {
    
 BBLog_.prototype.clear = function() {
 
-  if (this.localFirebase !== null) {
-  
-    var data = this.localFirebase.getData();
-
-    for (var index in data) {
-      this.localFirebase.removeData(index)
-    }
-  }
+//  if (this.localFirebase !== null) {
+//  
+//    var data = this.localFirebase.getData();
+//
+//    for (var index in data) {
+//      this.localFirebase.removeData(index)
+//    }
+//  }
   
   if (this.localSheet !== null) {
     this.localSheet.clearContents();
@@ -530,13 +497,13 @@ BBLog_.prototype.clear = function() {
  * For remote logging
  */
  
-BBLog_.prototype.remoteLogProxy = function(e) {
-
-  if (e && e.parameter.betterlogmsg) {
-    Utils_.callWithBackoff(function() {this.localSheet.appendRow([e.parameter.betterlogmsg]);});
-  }
-  
-} // BBLog.remoteLogProxy()
+//BBLog_.prototype.remoteLogProxy = function(e) {
+//
+//  if (e && e.parameter.betterlogmsg) {
+//    Utils_.callWithBackoff(function() {this.localSheet.appendRow([e.parameter.betterlogmsg]);});
+//  }
+//  
+//} // BBLog.remoteLogProxy()
 
 /********************************************************************************
  * Private Methods
@@ -745,7 +712,7 @@ BBLog_.prototype._log = function(oldArgs, level) {
   var self = this;
   
   // get args and transform objects to strings like the native logger does
-  var newArgs = Array.prototype.slice.call(oldArgs).map(function(arg) {  
+  var newArgs = Array.prototype.slice.call(oldArgs).map(function(arg){  
     var type = typeof arg;
     if (type === 'undefined') {
       return 'undefined';
@@ -772,17 +739,15 @@ BBLog_.prototype._log = function(oldArgs, level) {
   } 
   
   if (this.localFirebase !== null) { 
-    logToFirebase(messageString, level);
-  }
-  
-  if (this.useStackdriver) {
-    console.log(convertUsingDefaultPatternLayout(messageString, level));  
+//    logToFirebase(messageString, level);
   }
   
   return
   
   // Private Functions
   // -----------------
+  
+  // logs to spreadsheet
   
   function logToSheet(shortMessage, level) {
   
@@ -792,60 +757,60 @@ BBLog_.prototype._log = function(oldArgs, level) {
     
     var longMessage = convertUsingDefaultPatternLayout(shortMessage, level);
     
-    if (self.useRemoteLogger) {
+//    if (self.useRemoteLogger) {
+//    
+//      throw new Error('Remote logging not supported')
+//          
+//    } else {
     
-      var url = ScriptApp.getService().getUrl()+'?betterlogmsg=' + longMessage;
-      
       Utils_.callWithBackoff(function() {
-        UrlFetchApp.fetch(url);
-      });
       
-    } else {
-    
-      Utils_.callWithBackoff(function() {      
         self.localSheet.appendRow([longMessage]);
+        
+        // Use the same formatting for writing to StackDriver
+        console.log(longMessage);
       });
-    }
+//    }
     
   } // BBLog_._log.logToSheet()
   
   // logs to Firebase database
   
-  function logToFirebase(messageString, level) {
-  
-    var messageObject = convertToObject(messageString, level);
-    
-    self.localFirebase.setData(
-      messageObject.key, // timestamp
-      {
-        sinceStart: messageObject.body.sinceStart,
-        priority: messageObject.body.priority, 
-        id: messageObject.body.id, 
-        message: messageObject.body.message
-      }
-    )
-    
-    // Private Functions
-    // -----------------
-    
-    function convertToObject(msg, level) {
-    
-      var now = new Date;
-      var dt = Utilities.formatDate(now, Session.getScriptTimeZone(), DATE_TIME_LAYOUT_);
-      
-      return {
-        key: dt,
-        body: {
-          sinceStart: Utilities.formatString('%06d', now - self.startTime),
-          priority: level.name, 
-          id: (self.userId) ? self.userId : ((self.userEmail) ? self.userEmail : ''), 
-          message: self._getFunctionName() + msg,
-        }
-      }
-      
-    } // BBLog_._log.logToFirebase.convertToObject()
-    
-  } // BBLog_._log.logToFirebase
+//  function logToFirebase(messageString, level) {
+//  
+//    var messageObject = convertToObject(messageString, level);
+//    
+//    self.localFirebase.setData(
+//      messageObject.key, // timestamp
+//      {
+//        sinceStart: messageObject.body.sinceStart,
+//        priority: messageObject.body.priority, 
+//        id: messageObject.body.id, 
+//        message: messageObject.body.message
+//      }
+//    )
+//    
+//    // Private Functions
+//    // -----------------
+//    
+//    function convertToObject(msg, level) {
+//    
+//      var now = new Date;
+//      var dt = Utilities.formatDate(now, Session.getScriptTimeZone(), DATE_TIME_LAYOUT_);
+//      
+//      return {
+//        key: dt,
+//        body: {
+//          sinceStart: Utilities.formatString('%06d', now - self.startTime),
+//          priority: level.name, 
+//          id: (self.userId) ? self.userId : ((self.userEmail) ? self.userEmail : ''), 
+//          message: self._getFunctionName() + msg,
+//        }
+//      }
+//      
+//    } // BBLog_._log.logToFirebase.convertToObject()
+//    
+//  } // BBLog_._log.logToFirebase
   
   // convert message to text string
   
@@ -856,7 +821,7 @@ BBLog_.prototype._log = function(oldArgs, level) {
     var timeSinceStart = Utilities.formatString('%06d', now - self.startTime) + ' '
     var userIdString = (self.userId) ? self.userId : ((self.userEmail) ? self.userEmail : '')
     var levelString = level.name + " "
-    var remoteLoggingString = self.useRemoteLogger ? 'REMOTE ': ''
+//    var remoteLoggingString = self.useRemoteLogger ? 'REMOTE ': ''
     var functionName = self._getFunctionName()
     
     var formattedMessage = 
@@ -864,7 +829,7 @@ BBLog_.prototype._log = function(oldArgs, level) {
       timeSinceStart +     
       userIdString +                 
       levelString +         
-      remoteLoggingString +  
+//      remoteLoggingString +  
       functionName + 
       logMessage;                                  
       
@@ -919,9 +884,12 @@ BBLog_.prototype._rollLogOver = function() {
   // get a lock or throw exception
   var gotLockObject = (this.lock !== null);
   
-  // try for 10 secs to get a lock (else error), long enough to rollover the log 
-  var alreadyHaveLock = this.lock.hasLock()
-  if (gotLockObject) {  
+  // try for 10 secs to get a lock (else error), long enough to rollover the log
+  
+  if (gotLockObject) {
+  
+    var alreadyHaveLock = this.lock.hasLock();
+    
     if (!alreadyHaveLock) {
       this.lock.waitLock(10000); 
     }
@@ -929,29 +897,11 @@ BBLog_.prototype._rollLogOver = function() {
   
   // copy the log
   var ss = this.localSheet.getParent();
-  var timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), DATE_TIME_LAYOUT_);
-  var ssName = ss.getName() + ' as at ' + timestamp;
-  var oldLogSs;
+  var oldLog = ss.copy(ss.getName() + ' as at ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), DATE_TIME_LAYOUT_));
   
-  // SpreadsheetApp.getActiveSheet().copyTo(spreadsheet).setName(name)
-  
-  if (this.backupWholeSS) {  
-    oldLogSs = ss.copy(ssName);  
-  } else {
-    oldLogSs = SpreadsheetApp.create(ssName);
-    this.localSheet.copyTo(oldLogSs).setName(this.sheetName);
-    oldLogSs.deleteSheet(oldLogSs.getSheetByName('Sheet1'));
-  }
- 
-  if (this.backupFolder) {
-    oldLogFile = DriveApp.getFileById(oldLogSs.getId())
-    DriveApp.getRootFolder().removeFile(oldLogFile)
-    this.backupFolder.addFile(oldLogFile)
-  }
- 
   // add current viewers and editors to old log
-  oldLogSs.addViewers(ss.getViewers());
-  oldLogSs.addEditors(ss.getEditors());
+  oldLog.addViewers(ss.getViewers());
+  oldLog.addEditors(ss.getEditors());
   
   // prep the live log
   this.localSheet.deleteRows(2, this.localSheet.getMaxRows() - 2);
@@ -962,7 +912,7 @@ BBLog_.prototype._rollLogOver = function() {
     .getRange("A2")
     .setValue(['Log reached ' + rowCount + ' rows (MAX_ROWS is ' + this.maxRows + ') and was cleared. Previous log is available here:']);
     
-  this.localSheet.appendRow([oldLogSs.getUrl()]);
+  this.localSheet.appendRow([oldLog.getUrl()]);
   
   // release lock unless it was already "held"
   if (!alreadyHaveLock && gotLockObject) {
@@ -1036,8 +986,3 @@ function functionTemplate_() {
   
 
 }  // functionTemplate_()
-
-function test() {
-  var a = DriveApp.getFileById('1iwMdhp86eys-37GJr0EVvlWK2Gp2-3ZvDQhGMEy7VqU')
-  debugger
-}
