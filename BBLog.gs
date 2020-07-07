@@ -1,3 +1,11 @@
+// !!!!!! No Firebase ////////
+//
+// Special without Firebase for use in Add-ons, to remove external_request scope
+//
+// - Remove Firebase App library
+// - Search and remove any mentions of FirebaseApp
+
+
 /*******************************************************************************
  * BBLog.gs - (A better BetterLog)
  *********************************
@@ -191,14 +199,7 @@ function BBLog_(userConfig) {
   this.minLevelToDisplay = defaultConfig_.level;
 
   if (defaultConfig_.firebaseUrl !== null) {
-    
-    // Firebase has to come first, so that if it isn't used and 
-    // the sheet ID isn't specified the active sheet is used
-    
-    this.localFirebase = FirebaseApp
-      .getDatabaseByUrl(
-        defaultConfig_.firebaseUrl,
-        defaultConfig_.firebaseSecret);
+    throw new Error('Firebase not supported in this version of BBLog')    
   } 
   
   if (defaultConfig_.sheetId !== null) {
