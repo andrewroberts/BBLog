@@ -776,7 +776,18 @@ BBLog_.prototype._log = function(oldArgs, level) {
   }
   
   if (this.useStackdriver) {
-    console.log(convertUsingDefaultPatternLayout(messageString, level));  
+  
+    messageString = convertUsingDefaultPatternLayout(messageString, level);
+  
+    if (level.value <= Level.INFO.value) {
+      console.info(messageString);  
+    } else if (level.value === Level.WARNING.value) {
+      console.warn(messageString);      
+    } else if (level.value === Level.SEVERE.value) {
+      console.error(messageString);
+    } else {
+      // Do nothing 
+    }
   }
   
   return
