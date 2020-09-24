@@ -931,8 +931,9 @@ BBLog_.prototype._rollLogOver = function() {
   var gotLockObject = (this.lock !== null);
   
   // try for 10 secs to get a lock (else error), long enough to rollover the log 
-  var alreadyHaveLock = this.lock.hasLock()
+  var alreadyHaveLock
   if (gotLockObject) {  
+    alreadyHaveLock = this.lock.hasLock()
     if (!alreadyHaveLock) {
       this.lock.waitLock(10000); 
     }
