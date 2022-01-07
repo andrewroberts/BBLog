@@ -779,7 +779,7 @@ BBLog_.prototype._log = function(oldArgs, level) {
   
     messageString = convertUsingDefaultPatternLayout(messageString, level);
   
-    if (level.value <= Level.INFO.value) {
+    if (level.value === Level.INFO.value) {
       console.info(messageString);  
     } else if (level.value === Level.WARNING.value) {
       console.warn(messageString);      
