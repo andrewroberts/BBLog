@@ -97,6 +97,13 @@ var ROLLER_ROW_COUNT_              = 100;   // Number of calls after to which to
  * Public Methods
  ****************/
 
+function test_BBLog() {
+  const log = getLog({
+    sheetId: '1iwMdhp86eys-37GJr0EVvlWK2Gp2-3ZvDQhGMEy7VqU'
+  }) 
+  log.info('Hello')
+}
+
 function getLog(config) {
   return new BBLog_(config)
 }
@@ -201,6 +208,8 @@ function BBLog_(userConfig) {
         defaultConfig_.firebaseSecret);
   } 
   
+  this.sheetName = defaultConfig_.sheetName;
+
   if (defaultConfig_.sheetId !== null) {
     
     this.lock = defaultConfig_.lock
@@ -248,7 +257,6 @@ function BBLog_(userConfig) {
   }
   
   this.backupWholeSS = defaultConfig_.backupWholeSS;
-  this.sheetName = defaultConfig_.sheetName;
   this.useStackdriver = defaultConfig_.useStackdriver;
   
   return;
@@ -796,8 +804,10 @@ BBLog_.prototype._log = function(oldArgs, level) {
   // -----------------
   
   function logToSheet(shortMessage, level) {
+
+    const callCount = self._incCallCountToSheetLog()
   
-    if (self._incCallCountToSheetLog() % self.rollerRowCount === 0) {
+    if (callCount % self.rollerRowCount === 0) {
       self._rollLogOver();
     }
     
